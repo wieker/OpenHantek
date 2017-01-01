@@ -40,8 +40,9 @@ namespace Hantek {
 	/// \param parent The parent widget.
 	Device::Device(QObject *parent) : QObject(parent) {
 		// Product ids and names for the Model enum
-		this->modelIds << 0x2090 << 0x2150 << 0x2250 << 0x5200 << 0x520A << 0x6022;
-		this->modelStrings << "DSO-2090" << "DSO-2150" << "DSO-2250" << "DSO-5200" << "DSO-5200A" << "DSO-6022BE";
+		this->modelIds << 0x2090 << 0x2150 << 0x2250 << 0x5200 << 0x520A << 0x6022 << 0x602a;
+		this->modelStrings << "DSO-2090" << "DSO-2150" << "DSO-2250" << "DSO-5200" << "DSO-5200A" << "DSO-6022BE"
+				<< "DSO-6022BL";
 		this->model = MODEL_UNKNOWN;
 		
 		this->beginCommandControl = new ControlBeginCommand();
@@ -90,7 +91,8 @@ namespace Hantek {
 				continue;
 	
 			// Check VID and PID
-			if(this->descriptor.idVendor == HANTEK_VENDOR_ID) {
+			if(this->descriptor.idVendor == HANTEK_VENDOR_ID ||
+					this->descriptor.idVendor == 0x04b4) {
 				this->model = (Model) this->modelIds.indexOf(this->descriptor.idProduct);
 				if(this->model >= 0)
 					break; // Found a compatible device, ignore others

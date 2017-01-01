@@ -234,6 +234,8 @@ namespace Hantek {
 		// Command not supported by this model
 		if (this->device->getModel() == MODEL_DSO6022BE)
 			return CAPTURE_READY;
+		if (this->device->getModel() == MODEL_DSO6022BL)
+			return CAPTURE_READY;
 		
 		errorCode = this->device->bulkCommand(this->command[BULK_GETCAPTURESTATE], 1);
 		if(errorCode < 0)
@@ -254,7 +256,8 @@ namespace Hantek {
 	int Control::getSamples(bool process) {
 		int errorCode;
 
-		if (this->device->getModel() != MODEL_DSO6022BE) {
+		if (this->device->getModel() != MODEL_DSO6022BE &&
+				this->device->getModel() != MODEL_DSO6022BL) {
 			// Request data
 			errorCode = this->device->bulkCommand(this->command[BULK_GETDATA], 1);
 			if(errorCode < 0)
@@ -372,7 +375,8 @@ namespace Hantek {
 							}
 						}
 						else {
-							if (this->device->getModel() == MODEL_DSO6022BE)
+							if (this->device->getModel() == MODEL_DSO6022BE ||
+									this->device->getModel() == MODEL_DSO6022BL)
 								bufferPosition += channel;
 							else
 								bufferPosition += HANTEK_CHANNELS - 1 - channel;
@@ -381,7 +385,8 @@ namespace Hantek {
 								if(bufferPosition >= totalSampleCount)
 									bufferPosition %= totalSampleCount;
 
-								if (this->device->getModel() == MODEL_DSO6022BE)
+								if (this->device->getModel() == MODEL_DSO6022BE ||
+									this->device->getModel() == MODEL_DSO6022BL)
 									this->samples[channel][realPosition] = (((double) data[bufferPosition] - 0x83)
 										 / this->specification.voltageLimit[channel][this->settings.voltage[channel].gain])
 										* this->specification.gainSteps[this->settings.voltage[channel].gain];
@@ -822,6 +827,7 @@ namespace Hantek {
 				break;
 
 			case MODEL_DSO6022BE:
+			case MODEL_DSO6022BL:
 				// 6022BE do not support any bulk commands
 				this->control[CONTROLINDEX_SETVOLTDIV_CH1] = new ControlSetVoltDIV_CH1();
 				this->controlCode[CONTROLINDEX_SETVOLTDIV_CH1] = CONTROL_SETVOLTDIV_CH1;
@@ -839,7 +845,7 @@ namespace Hantek {
 				this->controlCode[CONTROLINDEX_ACQUIIRE_HARD_DATA] = CONTROL_ACQUIIRE_HARD_DATA;
 				this->controlPending[CONTROLINDEX_ACQUIIRE_HARD_DATA] = true;
 				/// \todo Test if lastControlIndex is correct
-				lastControlIndex = CONTROLINDEX_ACQUIIRE_HARD_DATA; 
+				lastControlIndex = CONTROLINDEX_ACQUIIRE_HARD_DATA;
 				break;
 			
 			default:
@@ -855,7 +861,8 @@ namespace Hantek {
 			this->controlPending[control] = true;
 
     // Disable controls not supported by 6022BE
-    if (this->device->getModel() == MODEL_DSO6022BE) {
+    if (this->device->getModel() == MODEL_DSO6022BE ||
+			this->device->getModel() == MODEL_DSO6022BL) {
       this->controlPending[CONTROLINDEX_SETOFFSET] = false;
       this->controlPending[CONTROLINDEX_SETRELAYS] = false;
     }
@@ -932,6 +939,7 @@ namespace Hantek {
 				break;
 			
 			case MODEL_DSO6022BE:
+			case MODEL_DSO6022BL:
 				this->specification.samplerate.single.base = 48e6;
 				this->specification.samplerate.single.max = 48e6;
 				this->specification.samplerate.single.maxDownsampler = 1;
