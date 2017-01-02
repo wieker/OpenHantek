@@ -44,13 +44,13 @@ void initEps() {
     OUTPKTEND=0x82;  SYNCDELAY;  // ...(double-buffered) (required!).
 }
 
-static void ProcessSendData(void)
+static int ProcessSendData(void)
 {
     xdata const unsigned char *src=EP2FIFOBUF;
     xdata unsigned char *dest=EP6FIFOBUF;
     unsigned int len = ((int)EP2BCH)<<8 | EP2BCL;
     unsigned int i;
-    for(i=0; i<len; i++,src++,dest++)
+    for(i=0; i<len; i++,src,dest++)
     {
         if(*src>='a' && *src<='z')
         {  *dest=*src-'a'+'A';  }
@@ -58,34 +58,20 @@ static void ProcessSendData(void)
         {  *dest=*src;  }
     }
 
+    if (*src == 'A') {
+        return 0x0A;
+    }
+    if (*src == 'B') {
+        return 0x0B;
+    }
+
     // "Skip" the received OUT packet to "forget" it (see TRM p. 9-26):
     SYNCDELAY;  OUTPKTEND=0x82;
-
     // Arm the endpoint. Be sure to set BCH before BCL because BCL access
     // actually arms the endpoint.
     SYNCDELAY;  EP6BCH=len>>8;
     SYNCDELAY;  EP6BCL=len&0xff;
-}
-
-void mainDSO(void)
-{
-	OEC = 0xff;
-	
-	main_init();
-	set_samplerate(1);
-	start_sampling();
-	IOC = IOC & ((IOC + 1) & 0x3);
-
-	
-	for(;;)
-	{
-		if(!(EP2CS & (1<<2)))
-		{
-			IOC = (IOC + 1) & 0x3;
-			OUTPKTEND = 0x82;  SYNCDELAY;
-		}
-		SUSPEND = 0x01;
-	}
+    return 0;
 }
 
 #define printf(...)
@@ -346,14 +332,12 @@ void main(void) {
         if(!(EP2CS & (1<<2))) {
             // Wait for EP6 buffer to become non-full so that we don't
             // overwrite content.
-            if (state == 0) {
-                stop_sampling();
-                while (EP6CS & (1 << 3));
-                ProcessSendData();
-                state = 1;
-            } else {
-                state = 0;
+            state = ProcessSendData();
+
+            if (state == 0x0B) {
                 start_sampling();
+            } else if (state == 0x0A) {
+                stop_sampling();
             }
         }
     }
