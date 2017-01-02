@@ -32,8 +32,6 @@ BYTE set_samplerate(BYTE rate);
 void initEps() {
     CPUCS=0x10;                  // 48 MHz, CLKOUT output disabled.
     IFCONFIG=0xc0;   SYNCDELAY;  // Internal IFCLK, 48MHz; A,B as normal ports.
-    REVCTL=0x03;     SYNCDELAY;  // See TRM...
-    EP6CFG=0xe2;     SYNCDELAY;  // 1110 0010 (bulk IN, 512 bytes, double-buffered)
     EP2CFG=0xa2;     SYNCDELAY;  // 1010 0010 (bulk OUT, 512 bytes, double-buffered)
     FIFORESET=0x80;  SYNCDELAY;  // NAK all requests from host.
     FIFORESET=0x82;  SYNCDELAY;  // Reset individual EP (2,4,6,8)
@@ -69,34 +67,9 @@ static void ProcessSendData(void)
     SYNCDELAY;  EP6BCL=len&0xff;
 }
 
-void main(void) {
-    initEps();
-
-    for(;;)
-    {
-        // Wait for input on EP2 (EP2 non-empty).
-        if(!(EP2CS & (1<<2)))
-        {
-            // Wait for EP6 buffer to become non-full so that we don't
-            // overwrite content.
-            while(EP6CS & (1<<3));
-            ProcessSendData();
-        }
-    }
-}
-
 void mainDSO(void)
 {
-	EP2CFG=0xa2;  // 1010 0010 (bulk OUT, 512 bytes, double-buffered)
-	SYNCDELAY;
-	FIFORESET = 0x82;  SYNCDELAY;
-	EP2FIFOCFG = 0x0;
-	SYNCDELAY;
-	OUTPKTEND = 0x82;  SYNCDELAY;
-	OUTPKTEND = 0x82;  SYNCDELAY;
 	OEC = 0xff;
-	OEA = 0xff;
-	IOA = 0xff;
 	
 	main_init();
 	set_samplerate(1);
@@ -162,6 +135,8 @@ BYTE set_voltage(BYTE channel, BYTE val)
 
     mask = channel ? 0xe0 : 0x1c;
     //IOA = (IOA & ~mask) | (bits & mask);
+    OEA = 0xff;
+    IOA = 0xff;
     IOA = 0x80 + (0x00);
     return 1;
 }
@@ -352,6 +327,36 @@ void main_init() {
     select_interface(0);
 
     printf ( "Initialization Done.\n" );
+}
+
+void main(void) {
+    int state = 0;
+
+    initEps();
+    stop_sampling();
+    set_voltage(0, 1);
+    set_voltage(1, 1);
+    set_samplerate(1);
+    set_numchannels(2);
+    select_interface(0);
+
+    for(;;)
+    {
+        // Wait for input on EP2 (EP2 non-empty).
+        if(!(EP2CS & (1<<2))) {
+            // Wait for EP6 buffer to become non-full so that we don't
+            // overwrite content.
+            if (state == 0) {
+                stop_sampling();
+                while (EP6CS & (1 << 3));
+                ProcessSendData();
+                state = 1;
+            } else {
+                state = 0;
+                start_sampling();
+            }
+        }
+    }
 }
 
 
