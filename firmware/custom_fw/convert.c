@@ -46,27 +46,29 @@ void initEps() {
     OUTPKTEND=0x82;  SYNCDELAY;  // ...(double-buffered) (required!).
 }
 
-static void ProcessSendData(void)
+static char ProcessSendData(void)
 {
     xdata const unsigned char *src=EP2FIFOBUF;
     xdata unsigned char *dest=EP6FIFOBUF;
     unsigned int len = ((int)EP2BCH)<<8 | EP2BCL;
     unsigned int i;
-    for(i=0; i<len; i++,src++,dest++)
+    /*for(i=0; i<len; i++,src++,dest++)
     {
         if(*src>='a' && *src<='z')
         {  *dest=*src-'a'+'A';  }
         else
         {  *dest=*src;  }
-    }
+    }*/
+    char result = *src;
 
     // "Skip" the received OUT packet to "forget" it (see TRM p. 9-26):
     SYNCDELAY;  OUTPKTEND=0x82;
 
     // Arm the endpoint. Be sure to set BCH before BCL because BCL access
     // actually arms the endpoint.
-    SYNCDELAY;  EP6BCH=len>>8;
-    SYNCDELAY;  EP6BCL=len&0xff;
+    //SYNCDELAY;  EP6BCH=len>>8;
+    //SYNCDELAY;  EP6BCL=len&0xff;
+    return result;
 }
 
 #define printf(...)
@@ -312,8 +314,10 @@ void main_init() {
 
 void main(void) {
     int state = 0;
+    char command;
 
     initEps();
+    main_init();
 
     for(;;)
     {
@@ -323,7 +327,13 @@ void main(void) {
             // Wait for EP6 buffer to become non-full so that we don't
             // overwrite content.
             while(EP6CS & (1<<3));
-            ProcessSendData();
+            command = ProcessSendData();
+            if (command == 'A') {
+                start_sampling();
+            }
+            if (command == 'B') {
+                stop_sampling();
+            }
         }
     }
 }
